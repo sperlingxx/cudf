@@ -317,4 +317,43 @@ TEST_F(StructScalarTest, BasicNulls)
   }
 }
 
+TEST_F(StructScalarTest, BasicEmpty)
+{
+  cudf::test::fixed_width_column_wrapper<int> col0{};
+  cudf::test::strings_column_wrapper col1{};
+  cudf::test::lists_column_wrapper<int> col2{};
+  std::vector<cudf::column_view> src_children({col0, col1, col2});
+
+  cudf::test::structs_column_wrapper empty_struct_col({col0, col1, col2});
+  cudf::column_view ecv = static_cast<cudf::column_view>(empty_struct_col);
+  std::vector<cudf::column_view> empty_children(ecv.child_begin(), ecv.child_end());
+
+  // table_view constructor
+  {
+    auto s = cudf::struct_scalar(cudf::table_view{src_children}, false);
+    EXPECT_TRUE(!s.is_valid());
+    CUDF_TEST_EXPECT_TABLES_EQUIVALENT(cudf::table_view{empty_children}, s.view());
+  }
+
+  // host_span constructor
+  {
+    auto s = cudf::struct_scalar(cudf::host_span<cudf::column_view const>{src_children}, false);
+    EXPECT_TRUE(!s.is_valid());
+    CUDF_TEST_EXPECT_TABLES_EQUIVALENT(cudf::table_view(empty_children), s.view());
+  }
+
+  // with empty children, we can NOT build valid struct scalars
+
+  // table_view constructor
+  {
+    EXPECT_THROW(cudf::struct_scalar(cudf::table_view{src_children}, true), cudf::logic_error);
+  }
+
+  // host_span constructor
+  {
+    EXPECT_THROW(cudf::struct_scalar(cudf::host_span<cudf::column_view const>{src_children}, true),
+                 cudf::logic_error);
+  }
+}
+
 CUDF_TEST_PROGRAM_MAIN()

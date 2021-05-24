@@ -478,11 +478,13 @@ void struct_scalar::init(bool is_valid,
 {
   table_view tv = static_cast<table_view>(_data);
   CUDF_EXPECTS(
-    std::all_of(tv.begin(), tv.end(), [](column_view const& col) { return col.size() == 1; }),
-    "Struct scalar inputs must have exactly 1 row");
+    (!is_valid &&
+     std::all_of(tv.begin(), tv.end(), [](column_view const& col) { return col.size() == 0; })) ||
+      std::all_of(tv.begin(), tv.end(), [](column_view const& col) { return col.size() == 1; }),
+    "Valid struct scalar inputs must have exactly 1 row, and invalid ones must have 0 or 1 row.");
 
-  // validity pushdown
-  if (!is_valid) { superimpose_nulls(stream, mr); }
+  // validity pushdown when children are non-empty
+  if (!is_valid && tv.num_rows() == 1) { superimpose_nulls(stream, mr); }
 }
 
 void struct_scalar::superimpose_nulls(rmm::cuda_stream_view stream,
